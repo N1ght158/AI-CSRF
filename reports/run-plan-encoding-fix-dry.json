@@ -1,0 +1,52 @@
+{
+  "run_id": "encoding-fix-dry",
+  "created_at_utc": "2026-04-23T10:37:43Z",
+  "mode": "dry-run",
+  "inputs": {
+    "frontend_repo": "https://github.com/N1ght158/AI-CSRF--1",
+    "backend_repo": "https://github.com/N1ght158/AI-CSRF--2",
+    "provider": "github",
+    "base_branch": "main",
+    "auto_merge": "off"
+  },
+  "repo_setup": {
+    "frontend_local_path": "C:\\Users\\Ye yj\\Desktop\\AI-CSRF\\repos\\AI-CSRF--1",
+    "backend_local_path": "C:\\Users\\Ye yj\\Desktop\\AI-CSRF\\repos\\AI-CSRF--2",
+    "frontend_branch": "ai/csrf-fix-frontend-encoding-fix-dry",
+    "backend_branch": "ai/csrf-fix-backend-encoding-fix-dry"
+  },
+  "checks": {
+    "git_cli": {
+      "status": "pass",
+      "message": "git version 2.46.0.windows.1"
+    },
+    "token": {
+      "status": "warn",
+      "checked_env": [
+        "GITHUB_TOKEN",
+        "GH_TOKEN"
+      ],
+      "found_env": [],
+      "message": "未检测到令牌变量；若仓库是私有库，后续访问可能失败"
+    },
+    "remote_frontend": {
+      "status": "skipped",
+      "message": "未执行远端访问检查（dry-run）"
+    },
+    "remote_backend": {
+      "status": "skipped",
+      "message": "未执行远端访问检查（dry-run）"
+    }
+  },
+  "plan_steps": [
+    "校验参数与本地运行环境",
+    "检查令牌变量与远端访问能力",
+    "准备前后端仓库（clone/fetch）",
+    "创建工作分支并切换到目标基线",
+    "输出后续修复流程的执行计划"
+  ],
+  "notes": [
+    "当前仅生成执行计划，不会拉取远端仓库",
+    "如需执行仓库准备，请追加 --execute-bootstrap"
+  ]
+}
