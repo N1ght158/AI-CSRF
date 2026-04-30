@@ -10,7 +10,8 @@
   [string]$FrontendDir = "",                               # 前端本地目录名，可选
   [string]$BackendDir = "",                                # 后端本地目录名，可选
   [switch]$ExecuteBootstrap,                               # 是否执行 clone/fetch 和分支准备
-  [switch]$RequireToken                                    # 是否强制要求检测到令牌
+  [switch]$RequireToken,                                   # 是否强制要求检测到令牌
+  [switch]$AnalyzeCsrf                                     # 是否生成 CSRF 风险识别报告
 )
 
 # 获取项目根目录（当前脚本目录的上一级）
@@ -57,6 +58,9 @@ if ($ExecuteBootstrap) {
 }
 if ($RequireToken) {
   $argsList += "--require-token"
+}
+if ($AnalyzeCsrf) {
+  $argsList += "--analyze-csrf"
 }
 
 # 执行 Python 脚本
