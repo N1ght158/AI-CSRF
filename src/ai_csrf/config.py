@@ -30,6 +30,7 @@ class RunConfig:
     execute_bootstrap: bool
     require_token: bool
     analyze_csrf: bool
+    decide_fixes: bool
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "RunConfig":
@@ -48,6 +49,7 @@ class RunConfig:
             execute_bootstrap=args.execute_bootstrap,
             require_token=args.require_token,
             analyze_csrf=args.analyze_csrf,
+            decide_fixes=args.decide_fixes,
         )
 
     @property

@@ -131,3 +131,68 @@ class CsrfAnalysisReportWriter:
             for item in evidence:
                 lines.append(f"  - `{item['file']}:{item['line']}` {item['sample']}")
         lines.append("")
+
+
+class RepairDecisionReportWriter:
+    def __init__(self, workspace: Path) -> None:
+        self.paths = ReportPathFactory(workspace)
+
+    def write(self, run_id: str, decision: dict) -> tuple[Path, Path]:
+        self.paths.ensure_dir()
+        json_path = self.paths.json_path("repair-decision", run_id)
+        md_path = self.paths.markdown_path("repair-decision", run_id)
+
+        json_path.write_text(json.dumps(decision, ensure_ascii=False, indent=2), encoding="utf-8")
+        md_path.write_text("\n".join(self._build_markdown(decision)), encoding="utf-8")
+        return json_path, md_path
+
+    def _build_markdown(self, decision: dict) -> list[str]:
+        lines = [
+            f"# 修复决策报告 {decision['run_id']}",
+            "",
+            "## 汇总",
+            f"- 决策数量: {decision['summary']['total']}",
+            f"- 按优先级: {decision['summary']['by_priority']}",
+            f"- 按动作: {decision['summary']['by_action']}",
+            f"- 按阶段: {decision['summary']['by_target_phase']}",
+            "",
+            "## 修复决策",
+        ]
+
+        for item in decision["decisions"]:
+            lines.extend(self._format_decision(item))
+
+        lines.extend(["", "## 下一步"])
+        for action in decision["next_actions"]:
+            lines.append(f"- {action}")
+
+        lines.extend(["", "## 说明"])
+        for note in decision["notes"]:
+            lines.append(f"- {note}")
+        lines.extend(["", f"生成时间(UTC): `{decision['created_at_utc']}`"])
+        return lines
+
+    def _format_decision(self, item: dict) -> list[str]:
+        lines = [
+            "",
+            f"### {item['id']}",
+            f"- 仓库角色: `{item['repo_role']}`",
+            f"- 优先级: `{item['priority']}`",
+            f"- 目标阶段: `{item['target_phase']}`",
+            f"- 动作: `{item['action']}`",
+            f"- 来源检查: {item['source_title']}",
+            f"- 修复目标: {item['repair_goal']}",
+            f"- 决策原因: {item['reason']}",
+            "- 建议步骤:",
+        ]
+        for step in item["suggested_steps"]:
+            lines.append(f"  - {step}")
+
+        lines.append("- AI 执行提示:")
+        lines.append(f"  - {item['ai_instruction']}")
+
+        if item["evidence"]:
+            lines.append("- 参考证据:")
+            for evidence in item["evidence"]:
+                lines.append(f"  - `{evidence['file']}:{evidence['line']}` {evidence['sample']}")
+        return lines

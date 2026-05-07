@@ -8,7 +8,8 @@ from .config import RunConfig
 from .csrf_analyzer import CsrfAnalyzer
 from .git_client import GitClient
 from .repository import RepositoryBootstrapper, RepositoryLayout, RepositoryLayoutResult
-from .reports import CsrfAnalysisReportWriter, ExecutionPlanReportWriter
+from .repair_decision import RepairDecisionEngine
+from .reports import CsrfAnalysisReportWriter, ExecutionPlanReportWriter, RepairDecisionReportWriter
 
 
 class PlanBuilder:
@@ -25,6 +26,7 @@ class PlanBuilder:
                 "base_branch": config.base,
                 "auto_merge": config.auto_merge,
                 "analyze_csrf": config.analyze_csrf,
+                "decide_fixes": config.decide_fixes,
             },
             "repo_setup": {
                 "frontend_local_path": str(layout.frontend.local_path),
@@ -71,10 +73,17 @@ class CsrfAutopilotApp:
         json_path, md_path = ExecutionPlanReportWriter(self.config.workspace).write(self.config.run_id, plan)
         self._print_plan_outputs(json_path, md_path)
 
-        if self.config.analyze_csrf:
-            analysis_json, analysis_md = self._write_analysis(layout)
+        analysis = None
+        if self.config.analyze_csrf or self.config.decide_fixes:
+            analysis = self._build_analysis(layout)
+            analysis_json, analysis_md = self._write_analysis(analysis)
             print(f"analysis_json: {analysis_json}")
             print(f"analysis_markdown: {analysis_md}")
+
+        if self.config.decide_fixes and analysis:
+            decision_json, decision_md = self._write_repair_decision(analysis)
+            print(f"decision_json: {decision_json}")
+            print(f"decision_markdown: {decision_md}")
 
         self._print_status()
         return 0
@@ -107,13 +116,19 @@ class CsrfAutopilotApp:
         plan["notes"].append("当前仅生成执行计划，不会拉取远端仓库")
         plan["notes"].append("如需执行仓库准备，请追加 --execute-bootstrap")
 
-    def _write_analysis(self, layout: RepositoryLayoutResult) -> tuple[Path, Path]:
-        analysis = self.analyzer.analyze(
+    def _build_analysis(self, layout: RepositoryLayoutResult) -> dict:
+        return self.analyzer.analyze(
             self.config.run_id,
             layout.frontend.local_path,
             layout.backend.local_path,
         )
+
+    def _write_analysis(self, analysis: dict) -> tuple[Path, Path]:
         return CsrfAnalysisReportWriter(self.config.workspace).write(self.config.run_id, analysis)
+
+    def _write_repair_decision(self, analysis: dict) -> tuple[Path, Path]:
+        decision = RepairDecisionEngine().build(self.config.run_id, analysis)
+        return RepairDecisionReportWriter(self.config.workspace).write(self.config.run_id, decision)
 
     def _print_plan_outputs(self, json_path: Path, md_path: Path) -> None:
         print(f"run_id: {self.config.run_id}")
@@ -125,5 +140,7 @@ class CsrfAutopilotApp:
             print("状态: 仓库准备完成（clone/fetch + 分支创建）")
         else:
             print("状态: 已生成执行计划（dry-run）")
-        if self.config.analyze_csrf:
+        if self.config.analyze_csrf or self.config.decide_fixes:
             print("状态: 已生成 CSRF 风险识别报告")
+        if self.config.decide_fixes:
+            print("状态: 已生成修复决策报告")
