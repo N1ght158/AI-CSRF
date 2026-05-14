@@ -196,3 +196,45 @@ class RepairDecisionReportWriter:
             for evidence in item["evidence"]:
                 lines.append(f"  - `{evidence['file']}:{evidence['line']}` {evidence['sample']}")
         return lines
+
+
+class BackendFixReportWriter:
+    def __init__(self, workspace: Path) -> None:
+        self.paths = ReportPathFactory(workspace)
+
+    def write(self, run_id: str, result: dict) -> tuple[Path, Path]:
+        self.paths.ensure_dir()
+        json_path = self.paths.json_path("backend-fix", run_id)
+        md_path = self.paths.markdown_path("backend-fix", run_id)
+
+        json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        md_path.write_text("\n".join(self._build_markdown(result)), encoding="utf-8")
+        return json_path, md_path
+
+    def _build_markdown(self, result: dict) -> list[str]:
+        lines = [
+            f"# 后端修复报告 {result['run_id']}",
+            "",
+            "## 汇总",
+            f"- 状态: `{result['status']}`",
+            f"- 后端路径: `{result['backend_path']}`",
+            f"- 支持栈: `{result['supported_stack'] or '未识别'}`",
+            f"- 说明: {result['message']}",
+            "",
+            "## 改动文件",
+        ]
+
+        if result["changed_files"]:
+            for file in result["changed_files"]:
+                lines.append(f"- `{file}`")
+        else:
+            lines.append("- 无")
+
+        lines.extend(["", "## 测试命令"])
+        lines.append(f"- `{result['test_command'] or '无'}`")
+
+        lines.extend(["", "## 说明"])
+        for note in result["notes"]:
+            lines.append(f"- {note}")
+        lines.extend(["", f"生成时间(UTC): `{result['created_at_utc']}`"])
+        return lines

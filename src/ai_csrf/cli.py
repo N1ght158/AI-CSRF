@@ -27,6 +27,7 @@ class CliParserFactory:
         run_parser.add_argument("--require-token", action="store_true", help="若未检测到令牌则直接失败")
         run_parser.add_argument("--analyze-csrf", action="store_true", help="扫描仓库并生成 CSRF 风险识别报告")
         run_parser.add_argument("--decide-fixes", action="store_true", help="基于扫描结果生成修复决策报告")
+        run_parser.add_argument("--apply-backend-fix", action="store_true", help="生成后端 CSRF 修复 MVP 改动")
         return parser
 
 

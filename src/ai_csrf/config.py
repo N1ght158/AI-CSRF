@@ -31,6 +31,7 @@ class RunConfig:
     require_token: bool
     analyze_csrf: bool
     decide_fixes: bool
+    apply_backend_fix: bool
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "RunConfig":
@@ -50,6 +51,7 @@ class RunConfig:
             require_token=args.require_token,
             analyze_csrf=args.analyze_csrf,
             decide_fixes=args.decide_fixes,
+            apply_backend_fix=args.apply_backend_fix,
         )
 
     @property
