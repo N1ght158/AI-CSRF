@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import datetime as dt
@@ -32,6 +32,7 @@ class RunConfig:
     analyze_csrf: bool
     decide_fixes: bool
     apply_backend_fix: bool
+    apply_frontend_fix: bool
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "RunConfig":
@@ -52,6 +53,7 @@ class RunConfig:
             analyze_csrf=args.analyze_csrf,
             decide_fixes=args.decide_fixes,
             apply_backend_fix=args.apply_backend_fix,
+            apply_frontend_fix=args.apply_frontend_fix,
         )
 
     @property

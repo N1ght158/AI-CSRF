@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import datetime as dt
 from pathlib import Path
@@ -7,10 +7,11 @@ from .backend_fixer import BackendFixer
 from .checks import EnvironmentChecker
 from .config import RunConfig
 from .csrf_analyzer import CsrfAnalyzer
+from .frontend_fixer import FrontendFixer
 from .git_client import GitClient
 from .repository import RepositoryBootstrapper, RepositoryLayout, RepositoryLayoutResult
 from .repair_decision import RepairDecisionEngine
-from .reports import BackendFixReportWriter, CsrfAnalysisReportWriter, ExecutionPlanReportWriter, RepairDecisionReportWriter
+from .reports import BackendFixReportWriter, CsrfAnalysisReportWriter, ExecutionPlanReportWriter, FrontendFixReportWriter, RepairDecisionReportWriter
 
 
 class PlanBuilder:
@@ -29,6 +30,7 @@ class PlanBuilder:
                 "analyze_csrf": config.analyze_csrf,
                 "decide_fixes": config.decide_fixes,
                 "apply_backend_fix": config.apply_backend_fix,
+                "apply_frontend_fix": config.apply_frontend_fix,
             },
             "repo_setup": {
                 "frontend_local_path": str(layout.frontend.local_path),
@@ -76,13 +78,13 @@ class CsrfAutopilotApp:
         self._print_plan_outputs(json_path, md_path)
 
         analysis = None
-        if self.config.analyze_csrf or self.config.decide_fixes or self.config.apply_backend_fix:
+        if self.config.analyze_csrf or self.config.decide_fixes or self.config.apply_backend_fix or self.config.apply_frontend_fix:
             analysis = self._build_analysis(layout)
             analysis_json, analysis_md = self._write_analysis(analysis)
             print(f"analysis_json: {analysis_json}")
             print(f"analysis_markdown: {analysis_md}")
 
-        if (self.config.decide_fixes or self.config.apply_backend_fix) and analysis:
+        if (self.config.decide_fixes or self.config.apply_backend_fix or self.config.apply_frontend_fix) and analysis:
             decision_json, decision_md = self._write_repair_decision(analysis)
             print(f"decision_json: {decision_json}")
             print(f"decision_markdown: {decision_md}")
@@ -91,6 +93,11 @@ class CsrfAutopilotApp:
             fix_json, fix_md = self._apply_backend_fix(layout)
             print(f"backend_fix_json: {fix_json}")
             print(f"backend_fix_markdown: {fix_md}")
+
+        if self.config.apply_frontend_fix:
+            fix_json, fix_md = self._apply_frontend_fix(layout)
+            print(f"frontend_fix_json: {fix_json}")
+            print(f"frontend_fix_markdown: {fix_md}")
 
         self._print_status()
         return 0
@@ -141,6 +148,10 @@ class CsrfAutopilotApp:
         result = BackendFixer().apply(self.config.run_id, layout.backend.local_path)
         return BackendFixReportWriter(self.config.workspace).write(self.config.run_id, result)
 
+    def _apply_frontend_fix(self, layout: RepositoryLayoutResult) -> tuple[Path, Path]:
+        result = FrontendFixer().apply(self.config.run_id, layout.frontend.local_path)
+        return FrontendFixReportWriter(self.config.workspace).write(self.config.run_id, result)
+
     def _print_plan_outputs(self, json_path: Path, md_path: Path) -> None:
         print(f"run_id: {self.config.run_id}")
         print(f"json: {json_path}")
@@ -151,9 +162,11 @@ class CsrfAutopilotApp:
             print("状态: 仓库准备完成（clone/fetch + 分支创建）")
         else:
             print("状态: 已生成执行计划（dry-run）")
-        if self.config.analyze_csrf or self.config.decide_fixes or self.config.apply_backend_fix:
+        if self.config.analyze_csrf or self.config.decide_fixes or self.config.apply_backend_fix or self.config.apply_frontend_fix:
             print("状态: 已生成 CSRF 风险识别报告")
-        if self.config.decide_fixes or self.config.apply_backend_fix:
+        if self.config.decide_fixes or self.config.apply_backend_fix or self.config.apply_frontend_fix:
             print("状态: 已生成修复决策报告")
         if self.config.apply_backend_fix:
             print("状态: 已处理后端修复 MVP")
+        if self.config.apply_frontend_fix:
+            print("状态: 已处理前端修复 MVP")

@@ -13,7 +13,8 @@
   [switch]$RequireToken,                                   # 是否强制要求检测到令牌
   [switch]$AnalyzeCsrf,                                    # 是否生成 CSRF 风险识别报告
   [switch]$DecideFixes,                                    # 是否生成修复决策报告
-  [switch]$ApplyBackendFix                                 # 是否生成后端 CSRF 修复 MVP 改动
+  [switch]$ApplyBackendFix,                                # 是否生成后端 CSRF 修复 MVP 改动
+  [switch]$ApplyFrontendFix                                # 是否生成前端 CSRF 修复 MVP 改动
 )
 
 # 获取项目根目录（当前脚本目录的上一级）
@@ -69,6 +70,9 @@ if ($DecideFixes) {
 }
 if ($ApplyBackendFix) {
   $argsList += "--apply-backend-fix"
+}
+if ($ApplyFrontendFix) {
+  $argsList += "--apply-frontend-fix"
 }
 
 # 执行 Python 脚本
