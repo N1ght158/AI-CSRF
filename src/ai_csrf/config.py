@@ -2,6 +2,7 @@
 
 import argparse
 import datetime as dt
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +34,16 @@ class RunConfig:
     decide_fixes: bool
     apply_backend_fix: bool
     apply_frontend_fix: bool
+    run_ci_gate: bool
+    create_pr: bool
+    execute_merge: bool
+    ai_provider: str
+    ai_model: str
+    ai_base_url: str
+    ai_api_key_env: str
+    ai_timeout_seconds: int
+    ai_reasoning_effort: str
+    ai_decide_fixes: bool
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "RunConfig":
@@ -54,6 +65,16 @@ class RunConfig:
             decide_fixes=args.decide_fixes,
             apply_backend_fix=args.apply_backend_fix,
             apply_frontend_fix=args.apply_frontend_fix,
+            run_ci_gate=args.run_ci_gate,
+            create_pr=args.create_pr,
+            execute_merge=args.execute_merge,
+            ai_provider=args.ai_provider,
+            ai_model=args.ai_model,
+            ai_base_url=args.ai_base_url,
+            ai_api_key_env=args.ai_api_key_env,
+            ai_timeout_seconds=max(int(args.ai_timeout_seconds), 5),
+            ai_reasoning_effort=args.ai_reasoning_effort,
+            ai_decide_fixes=args.ai_decide_fixes,
         )
 
     @property
@@ -61,3 +82,7 @@ class RunConfig:
         # 清理分支名前缀中的特殊字符。
         cleaned = re.sub(r"[^A-Za-z0-9/_-]+", "-", self.branch_prefix.strip())
         return cleaned.strip("-") or "ai/csrf-fix"
+
+    @property
+    def ai_api_key(self) -> str:
+        return os.getenv(self.ai_api_key_env, "").strip()

@@ -3,8 +3,8 @@
 import argparse
 import sys
 
-from .app import CsrfAutopilotApp
 from .config import RunConfig
+from .csrf_autopilot_app import CsrfAutopilotApp
 
 
 class CliParserFactory:
@@ -29,6 +29,22 @@ class CliParserFactory:
         run_parser.add_argument("--decide-fixes", action="store_true", help="基于扫描结果生成修复决策报告")
         run_parser.add_argument("--apply-backend-fix", action="store_true", help="生成后端 CSRF 修复 MVP 改动")
         run_parser.add_argument("--apply-frontend-fix", action="store_true", help="生成前端 CSRF 修复 MVP 改动")
+        run_parser.add_argument("--run-ci-gate", action="store_true", help="执行 CI 闸门检查")
+        run_parser.add_argument("--create-pr", action="store_true", help="自动提交改动并创建 PR")
+        run_parser.add_argument("--execute-merge", action="store_true", help="执行自动合并命令（需 on-green）")
+
+        run_parser.add_argument("--ai-provider", default="openai", choices=["openai"], help="AI 提供方")
+        run_parser.add_argument("--ai-model", default="gpt-5.1-codex-mini", help="AI 模型名称")
+        run_parser.add_argument("--ai-base-url", default="https://api.openai.com/v1", help="AI 接口地址")
+        run_parser.add_argument("--ai-api-key-env", default="OPENAI_API_KEY", help="保存 API Key 的环境变量名")
+        run_parser.add_argument("--ai-timeout-seconds", type=int, default=120, help="AI 请求超时时间（秒）")
+        run_parser.add_argument(
+            "--ai-reasoning-effort",
+            default="low",
+            choices=["none", "minimal", "low", "medium", "high", "xhigh"],
+            help="AI 推理强度",
+        )
+        run_parser.add_argument("--ai-decide-fixes", action="store_true", help="使用 AI 生成修复决策")
         return parser
 
 
@@ -53,3 +69,4 @@ class CliApplication:
 
 def main(argv: list[str] | None = None) -> int:
     return CliApplication().run(argv)
+

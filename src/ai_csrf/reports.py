@@ -280,3 +280,128 @@ class FrontendFixReportWriter:
             lines.append(f"- {note}")
         lines.extend(["", f"生成时间(UTC): `{result['created_at_utc']}`"])
         return lines
+
+
+class CiGateReportWriter:
+    def __init__(self, workspace: Path) -> None:
+        self.paths = ReportPathFactory(workspace)
+
+    def write(self, run_id: str, result: dict) -> tuple[Path, Path]:
+        self.paths.ensure_dir()
+        json_path = self.paths.json_path("ci-gate", run_id)
+        md_path = self.paths.markdown_path("ci-gate", run_id)
+        json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        md_path.write_text("\n".join(self._build_markdown(result)), encoding="utf-8")
+        return json_path, md_path
+
+    def _build_markdown(self, result: dict) -> list[str]:
+        lines = [
+            f"# CI 闸门报告 {result['run_id']}",
+            "",
+            "## 汇总",
+            f"- 通过: {result['summary'].get('pass', 0)}",
+            f"- 失败: {result['summary'].get('fail', 0)}",
+            f"- 跳过: {result['summary'].get('skipped', 0)}",
+            f"- 阻断: {result['summary'].get('blocked', 0)}",
+            f"- 闸门通过: {result['summary'].get('gate_passed', False)}",
+            "",
+        ]
+        for repository in result.get("repositories", []):
+            lines.append(f"## {repository['role']}")
+            lines.append(f"- 状态: `{repository['status']}`")
+            lines.append(f"- 目录: `{repository['path']}`")
+            lines.append(f"- 说明: {repository['message']}")
+            if repository.get("detected_commands"):
+                lines.append("- 检查命令:")
+                for command in repository["detected_commands"]:
+                    lines.append(f"  - `{command}`")
+            lines.append("")
+        lines.append("## 说明")
+        for note in result.get("notes", []):
+            lines.append(f"- {note}")
+        return lines
+
+
+class PullRequestReportWriter:
+    def __init__(self, workspace: Path) -> None:
+        self.paths = ReportPathFactory(workspace)
+
+    def write(self, run_id: str, result: dict) -> tuple[Path, Path]:
+        self.paths.ensure_dir()
+        json_path = self.paths.json_path("pr-automation", run_id)
+        md_path = self.paths.markdown_path("pr-automation", run_id)
+        json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        md_path.write_text("\n".join(self._build_markdown(result)), encoding="utf-8")
+        return json_path, md_path
+
+    def _build_markdown(self, result: dict) -> list[str]:
+        lines = [
+            f"# 自动提 PR 报告 {result['run_id']}",
+            "",
+            "## 汇总",
+            f"- 成功: {result['summary'].get('pass', 0)}",
+            f"- 手动: {result['summary'].get('manual', 0)}",
+            f"- 失败: {result['summary'].get('fail', 0)}",
+            f"- 跳过: {result['summary'].get('skipped', 0)}",
+            f"- 阻断: {result['summary'].get('blocked', 0)}",
+            "",
+        ]
+        for repository in result.get("repositories", []):
+            lines.append(f"## {repository['role']}")
+            lines.append(f"- 状态: `{repository['status']}`")
+            lines.append(f"- 分支: `{repository['branch']}`")
+            lines.append(f"- 说明: {repository['message']}")
+            if repository.get("pr_url"):
+                lines.append(f"- PR: {repository['pr_url']}")
+            if repository.get("manual_pr_command"):
+                lines.append(f"- 手动命令: `{repository['manual_pr_command']}`")
+            lines.append("")
+        lines.append("## 说明")
+        for note in result.get("notes", []):
+            lines.append(f"- {note}")
+        return lines
+
+
+class MergeExecutionReportWriter:
+    def __init__(self, workspace: Path) -> None:
+        self.paths = ReportPathFactory(workspace)
+
+    def write(self, run_id: str, result: dict) -> tuple[Path, Path]:
+        self.paths.ensure_dir()
+        json_path = self.paths.json_path("merge-execution", run_id)
+        md_path = self.paths.markdown_path("merge-execution", run_id)
+        json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        md_path.write_text("\n".join(self._build_markdown(result)), encoding="utf-8")
+        return json_path, md_path
+
+    def _build_markdown(self, result: dict) -> list[str]:
+        lines = [
+            f"# 自动合并报告 {result['run_id']}",
+            "",
+            "## 汇总",
+            f"- 状态: `{result['status']}`",
+            f"- 策略: `{result['strategy']}`",
+            f"- 执行命令: `{result['execute_merge']}`",
+            f"- 说明: {result['message']}",
+            "",
+        ]
+        summary = result.get("summary", {})
+        if summary:
+            lines.append("## 统计")
+            lines.append(f"- 成功: {summary.get('pass', 0)}")
+            lines.append(f"- 计划中: {summary.get('planned', 0)}")
+            lines.append(f"- 阻断: {summary.get('blocked', 0)}")
+            lines.append(f"- 失败: {summary.get('fail', 0)}")
+            lines.append("")
+
+        for action in result.get("actions", []):
+            lines.append(f"## {action['role']}")
+            lines.append(f"- 状态: `{action['status']}`")
+            lines.append(f"- PR: {action.get('pr_url', '')}")
+            lines.append(f"- 说明: {action['message']}")
+            lines.append("")
+
+        lines.append("## 说明")
+        for note in result.get("notes", []):
+            lines.append(f"- {note}")
+        return lines

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import locale
 import subprocess
@@ -39,19 +39,27 @@ class CommandRunner:
         self.decoder = decoder or TextDecoder()
 
     def run(self, cmd: list[str], cwd: Path | None = None) -> CommandResult:
-        raw = subprocess.run(
-            cmd,
-            cwd=str(cwd) if cwd else None,
-            text=False,
-            capture_output=True,
-            check=False,
-        )
-        return CommandResult(
-            args=list(raw.args),
-            returncode=raw.returncode,
-            stdout=self.decoder.decode(raw.stdout),
-            stderr=self.decoder.decode(raw.stderr),
-        )
+        try:
+            raw = subprocess.run(
+                cmd,
+                cwd=str(cwd) if cwd else None,
+                text=False,
+                capture_output=True,
+                check=False,
+            )
+            return CommandResult(
+                args=list(raw.args),
+                returncode=raw.returncode,
+                stdout=self.decoder.decode(raw.stdout),
+                stderr=self.decoder.decode(raw.stderr),
+            )
+        except OSError as exc:
+            return CommandResult(
+                args=cmd,
+                returncode=127,
+                stdout="",
+                stderr=str(exc),
+            )
 
 
 class GitClient:
