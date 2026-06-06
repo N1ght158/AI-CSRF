@@ -1,4 +1,4 @@
-﻿param(
+param(
   [Parameter(Mandatory = $true)][string]$Frontend,         # 前端仓库地址（必填）
   [Parameter(Mandatory = $true)][string]$Backend,          # 后端仓库地址（必填）
   [ValidateSet("github", "gitlab")][string]$Provider = "github",  # 平台，默认 github
@@ -24,7 +24,12 @@
   [string]$AiApiKeyEnv = "OPENAI_API_KEY",                                   # API Key 环境变量名
   [ValidateSet("none", "minimal", "low", "medium", "high", "xhigh")][string]$AiReasoningEffort = "low",  # AI 推理强度
   [int]$AiTimeoutSeconds = 120,                                                # AI 请求超时秒数
-  [switch]$AiDecideFixes                                                       # 是否启用 AI 决策
+  [switch]$AiDecideFixes,                                                      # 是否启用 AI 决策
+  [switch]$AiGeneratePatch,                                                    # 是否生成 AI 补丁草案
+  [switch]$ApplyAiPatch,                                                       # 是否确认并落地 AI 补丁
+  [switch]$ValidateAiPatch,                                                    # 是否在落地后执行验证
+  [string]$AiPatchAllowlist = "frontend,backend,src,server.js,app.js,index.js,package.json,test,tests,middleware",  # AI 可写路径白名单
+  [string]$AiPatchDraftFile = ""                                      # 已有 AI 补丁草案，可选
 )
 
 # 获取项目根目录（当前脚本目录的上一级）
@@ -55,8 +60,14 @@ $argsList = @(
   "--ai-base-url", $AiBaseUrl,
   "--ai-api-key-env", $AiApiKeyEnv,
   "--ai-reasoning-effort", $AiReasoningEffort,
-  "--ai-timeout-seconds", $AiTimeoutSeconds
+  "--ai-timeout-seconds", $AiTimeoutSeconds,
+  "--ai-patch-allowlist", $AiPatchAllowlist
 )
+
+# 如果传入了已有草案，则复用该文件
+if ($AiPatchDraftFile -ne "") {
+  $argsList += @("--ai-patch-draft-file", $AiPatchDraftFile)
+}
 
 # 如果传入了 RunId，则追加对应参数
 if ($RunId -ne "") {
@@ -101,6 +112,15 @@ if ($ExecuteMerge) {
 }
 if ($AiDecideFixes) {
   $argsList += "--ai-decide-fixes"
+}
+if ($AiGeneratePatch) {
+  $argsList += "--ai-generate-patch"
+}
+if ($ApplyAiPatch) {
+  $argsList += "--apply-ai-patch"
+}
+if ($ValidateAiPatch) {
+  $argsList += "--validate-ai-patch"
 }
 
 # 执行 Python 脚本

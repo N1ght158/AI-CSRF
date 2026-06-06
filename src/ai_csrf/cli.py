@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import sys
@@ -45,6 +45,15 @@ class CliParserFactory:
             help="AI 推理强度",
         )
         run_parser.add_argument("--ai-decide-fixes", action="store_true", help="使用 AI 生成修复决策")
+        run_parser.add_argument("--ai-generate-patch", action="store_true", help="使用 AI 生成补丁草案")
+        run_parser.add_argument("--apply-ai-patch", action="store_true", help="确认并落地 AI 补丁草案")
+        run_parser.add_argument("--validate-ai-patch", action="store_true", help="AI 补丁落地后执行 CI 闸门验证")
+        run_parser.add_argument(
+            "--ai-patch-allowlist",
+            default="frontend,backend,src,server.js,app.js,index.js,package.json,test,tests,middleware",
+            help="允许 AI 补丁写入的相对路径前缀，逗号分隔",
+        )
+        run_parser.add_argument("--ai-patch-draft-file", default="", help="读取已有 AI 补丁草案 JSON 并复用")
         return parser
 
 
@@ -69,4 +78,3 @@ class CliApplication:
 
 def main(argv: list[str] | None = None) -> int:
     return CliApplication().run(argv)
-

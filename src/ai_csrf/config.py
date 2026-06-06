@@ -44,6 +44,11 @@ class RunConfig:
     ai_timeout_seconds: int
     ai_reasoning_effort: str
     ai_decide_fixes: bool
+    ai_generate_patch: bool
+    apply_ai_patch: bool
+    validate_ai_patch: bool
+    ai_patch_allowlist: str
+    ai_patch_draft_file: str
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "RunConfig":
@@ -75,6 +80,11 @@ class RunConfig:
             ai_timeout_seconds=max(int(args.ai_timeout_seconds), 5),
             ai_reasoning_effort=args.ai_reasoning_effort,
             ai_decide_fixes=args.ai_decide_fixes,
+            ai_generate_patch=args.ai_generate_patch,
+            apply_ai_patch=args.apply_ai_patch,
+            validate_ai_patch=args.validate_ai_patch,
+            ai_patch_allowlist=args.ai_patch_allowlist,
+            ai_patch_draft_file=args.ai_patch_draft_file,
         )
 
     @property

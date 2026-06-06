@@ -311,6 +311,10 @@ class CiGateReportWriter:
             lines.append(f"- 状态: `{repository['status']}`")
             lines.append(f"- 目录: `{repository['path']}`")
             lines.append(f"- 说明: {repository['message']}")
+            if repository.get("detected_projects"):
+                lines.append("- 项目目录:")
+                for project in repository["detected_projects"]:
+                    lines.append(f"  - `{project}`")
             if repository.get("detected_commands"):
                 lines.append("- 检查命令:")
                 for command in repository["detected_commands"]:
@@ -351,6 +355,10 @@ class PullRequestReportWriter:
             lines.append(f"- 状态: `{repository['status']}`")
             lines.append(f"- 分支: `{repository['branch']}`")
             lines.append(f"- 说明: {repository['message']}")
+            if repository.get("detected_projects"):
+                lines.append("- 项目目录:")
+                for project in repository["detected_projects"]:
+                    lines.append(f"  - `{project}`")
             if repository.get("pr_url"):
                 lines.append(f"- PR: {repository['pr_url']}")
             if repository.get("manual_pr_command"):
@@ -402,6 +410,99 @@ class MergeExecutionReportWriter:
             lines.append("")
 
         lines.append("## 说明")
+        for note in result.get("notes", []):
+            lines.append(f"- {note}")
+        return lines
+
+
+class AiPatchDraftReportWriter:
+    def __init__(self, workspace: Path) -> None:
+        self.paths = ReportPathFactory(workspace)
+
+    def write(self, run_id: str, result: dict) -> tuple[Path, Path]:
+        self.paths.ensure_dir()
+        json_path = self.paths.json_path("ai-patch-draft", run_id)
+        md_path = self.paths.markdown_path("ai-patch-draft", run_id)
+        json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        md_path.write_text("\n".join(self._build_markdown(result)), encoding="utf-8")
+        return json_path, md_path
+
+    def _build_markdown(self, result: dict) -> list[str]:
+        lines = [
+            f"# AI 补丁草案 {result['run_id']}",
+            "",
+            "## 汇总",
+            f"- 状态: `{result.get('status', '')}`",
+            f"- 模型: `{result.get('provider', '')}/{result.get('model', '')}`",
+            f"- 说明: {result.get('summary', '')}",
+            "",
+            "## 补丁文件",
+        ]
+        patches = result.get("patches", [])
+        if not patches:
+            lines.append("- 无")
+        for patch in patches:
+            lines.append(f"- 目标: {patch.get('objective', '')}")
+            for file_item in patch.get("files", []):
+                lines.append(f"- `{file_item.get('role', '')}:{file_item.get('path', '')}` {file_item.get('reason', '')}")
+
+        lines.extend(["", "## 建议测试"])
+        tests = result.get("tests", [])
+        if not tests:
+            lines.append("- 无")
+        for item in tests:
+            lines.append(f"- {item}")
+
+        lines.extend(["", "## 风险提示"])
+        risks = result.get("risks", [])
+        if not risks:
+            lines.append("- 无")
+        for item in risks:
+            lines.append(f"- {item}")
+
+        lines.extend(["", "## 说明"])
+        for note in result.get("notes", []):
+            lines.append(f"- {note}")
+        return lines
+
+
+class AiPatchApplyReportWriter:
+    def __init__(self, workspace: Path) -> None:
+        self.paths = ReportPathFactory(workspace)
+
+    def write(self, run_id: str, result: dict) -> tuple[Path, Path]:
+        self.paths.ensure_dir()
+        json_path = self.paths.json_path("ai-patch-apply", run_id)
+        md_path = self.paths.markdown_path("ai-patch-apply", run_id)
+        json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        md_path.write_text("\n".join(self._build_markdown(result)), encoding="utf-8")
+        return json_path, md_path
+
+    def _build_markdown(self, result: dict) -> list[str]:
+        lines = [
+            f"# AI 补丁落地 {result['run_id']}",
+            "",
+            "## 汇总",
+            f"- 状态: `{result.get('status', '')}`",
+            f"- 已确认: `{result.get('confirmed', False)}`",
+            f"- 说明: {result.get('message', '')}",
+            "",
+            "## 已写入文件",
+        ]
+        changed_files = result.get("changed_files", [])
+        if not changed_files:
+            lines.append("- 无")
+        for item in changed_files:
+            lines.append(f"- `{item.get('role', '')}:{item.get('path', '')}` {item.get('reason', '')}")
+
+        lines.extend(["", "## 跳过文件"])
+        skipped_files = result.get("skipped_files", [])
+        if not skipped_files:
+            lines.append("- 无")
+        for item in skipped_files:
+            lines.append(f"- `{item.get('role', '')}:{item.get('path', '')}` {item.get('reason', '')}")
+
+        lines.extend(["", "## 说明"])
         for note in result.get("notes", []):
             lines.append(f"- {note}")
         return lines

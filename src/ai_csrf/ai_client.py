@@ -1,9 +1,10 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from typing import Any
 
 
 class AiClientError(RuntimeError):
@@ -56,11 +57,16 @@ class OpenAiCodexClient(AiClient):
         except json.JSONDecodeError as exc:
             raise AiClientError("AI 返回内容不是合法 JSON。") from exc
 
-        response_text = self._extract_output_text(payload_json)
-        try:
-            return self._parse_json_text(response_text)
-        except json.JSONDecodeError as exc:
-            raise AiClientError("AI 返回了文本，但不是可解析的 JSON。") from exc
+        candidates = self._extract_output_candidates(payload_json)
+        for text in candidates:
+            try:
+                return self._parse_json_text(text)
+            except json.JSONDecodeError:
+                continue
+
+        if candidates:
+            raise AiClientError("AI 返回了文本，但不是可解析的 JSON。")
+        raise AiClientError(self._build_empty_output_message(payload_json))
 
     def _build_payload(self, system_prompt: str, user_prompt: str) -> dict:
         # 先走 JSON 对象输出，便于稳定解析。
@@ -72,30 +78,88 @@ class OpenAiCodexClient(AiClient):
             ],
             "text": {"format": {"type": "json_object"}},
             "reasoning": {"effort": self.settings.reasoning_effort},
-            "max_output_tokens": 3000,
+            "max_output_tokens": 6000,
         }
 
-    def _extract_output_text(self, payload: dict) -> str:
-        output_text = payload.get("output_text")
-        if isinstance(output_text, str) and output_text.strip():
-            return output_text.strip()
+    def _extract_output_candidates(self, payload: dict) -> list[str]:
+        candidates: list[str] = []
+        self._append_candidate(candidates, payload.get("output_text"))
+        self._append_chat_candidates(candidates, payload)
+        self._append_response_candidates(candidates, payload)
+        self._append_json_like_candidates(candidates, payload)
+        return self._dedupe(candidates)
 
-        chunks: list[str] = []
+    def _append_chat_candidates(self, candidates: list[str], payload: dict) -> None:
+        # 兼容部分 OpenAI-compatible 响应格式，后续扩展模型时可以复用。
+        for choice in payload.get("choices", []):
+            if not isinstance(choice, dict):
+                continue
+            message = choice.get("message", {})
+            if isinstance(message, dict):
+                self._append_candidate(candidates, message.get("content"))
+            self._append_candidate(candidates, choice.get("text"))
+
+    def _append_response_candidates(self, candidates: list[str], payload: dict) -> None:
         for item in payload.get("output", []):
-            if not isinstance(item, dict) or item.get("type") != "message":
+            if not isinstance(item, dict):
                 continue
             for content in item.get("content", []):
+                if isinstance(content, str):
+                    self._append_candidate(candidates, content)
+                    continue
                 if not isinstance(content, dict):
                     continue
-                if content.get("type") in {"output_text", "text"}:
-                    text = content.get("text", "")
-                    if isinstance(text, str) and text.strip():
-                        chunks.append(text.strip())
+                self._append_candidate(candidates, content.get("text"))
+                self._append_candidate(candidates, content.get("output_text"))
+                parsed = content.get("parsed")
+                if isinstance(parsed, dict):
+                    self._append_candidate(candidates, json.dumps(parsed, ensure_ascii=False))
 
-        if chunks:
-            return "\n".join(chunks)
+    def _append_json_like_candidates(self, candidates: list[str], payload: Any) -> None:
+        # 少数情况下文本会嵌在较深字段里，这里只收集看起来像 JSON 的片段。
+        if isinstance(payload, dict):
+            for key, value in payload.items():
+                if key in {"input", "usage", "metadata", "error"}:
+                    continue
+                if isinstance(value, dict) and self._looks_like_result_object(value):
+                    self._append_candidate(candidates, json.dumps(value, ensure_ascii=False))
+                self._append_json_like_candidates(candidates, value)
+            return
+        if isinstance(payload, list):
+            for item in payload:
+                self._append_json_like_candidates(candidates, item)
+            return
+        if isinstance(payload, str) and self._looks_like_json_text(payload):
+            self._append_candidate(candidates, payload)
 
-        raise AiClientError("AI 返回成功，但未提取到文本输出。")
+    def _looks_like_result_object(self, value: dict) -> bool:
+        return any(key in value for key in {"status", "patches", "decisions", "summary", "tests", "risks"})
+
+    def _looks_like_json_text(self, text: str) -> bool:
+        stripped = text.strip()
+        return "{" in stripped and "}" in stripped and len(stripped) <= 2_000_000
+
+    def _append_candidate(self, candidates: list[str], value: object) -> None:
+        if isinstance(value, str) and value.strip():
+            candidates.append(value.strip())
+
+    def _dedupe(self, candidates: list[str]) -> list[str]:
+        seen: set[str] = set()
+        result: list[str] = []
+        for item in candidates:
+            if item in seen:
+                continue
+            seen.add(item)
+            result.append(item)
+        return result
+
+    def _build_empty_output_message(self, payload: dict) -> str:
+        status = payload.get("status", "")
+        incomplete = payload.get("incomplete_details", {})
+        if status == "incomplete" and isinstance(incomplete, dict):
+            reason = incomplete.get("reason", "未知原因")
+            return f"AI 返回未完成，原因: {reason}"
+        return "AI 返回成功，但未提取到文本输出。"
 
     def _parse_json_text(self, text: str) -> dict:
         try:
@@ -113,4 +177,3 @@ class AiClientFactory:
         if settings.provider == "openai":
             return OpenAiCodexClient(settings)
         raise AiClientError(f"暂不支持的 AI 提供方: {settings.provider}")
-

@@ -19,10 +19,11 @@ class PullRequestCreator:
         base_branch: str,
         frontend_target: RepositoryTarget,
         backend_target: RepositoryTarget,
+        ai_evidence: dict | None = None,
     ) -> dict:
         repositories = [
-            self._create_for_repository(run_id, provider, base_branch, frontend_target, backend_target),
-            self._create_for_repository(run_id, provider, base_branch, backend_target, frontend_target),
+            self._create_for_repository(run_id, provider, base_branch, frontend_target, backend_target, ai_evidence),
+            self._create_for_repository(run_id, provider, base_branch, backend_target, frontend_target, ai_evidence),
         ]
         return {
             "run_id": run_id,
@@ -44,6 +45,7 @@ class PullRequestCreator:
         base_branch: str,
         target: RepositoryTarget,
         related: RepositoryTarget,
+        ai_evidence: dict | None,
     ) -> dict:
         result = {
             "role": target.role,
@@ -93,7 +95,7 @@ class PullRequestCreator:
             return result
 
         pr_title = f"[AI-CSRF] {target.role} csrf fix ({run_id})"
-        pr_body = self._build_pr_body(run_id, target, related)
+        pr_body = self._build_pr_body(run_id, target, related, ai_evidence)
 
         if provider == "github":
             return self._create_github_pr(result, target.local_path, base_branch, pr_title, pr_body)
@@ -154,16 +156,38 @@ class PullRequestCreator:
         result["message"] = "PR 创建成功"
         return result
 
-    def _build_pr_body(self, run_id: str, target: RepositoryTarget, related: RepositoryTarget) -> str:
-        return "\n".join(
-            [
-                f"run_id: {run_id}",
-                f"role: {target.role}",
-                f"branch: {target.work_branch}",
-                f"related_{related.role}_branch: {related.work_branch}",
-                "generated_by: AI-CSRF autopilot",
-            ]
-        )
+    def _build_pr_body(self, run_id: str, target: RepositoryTarget, related: RepositoryTarget, ai_evidence: dict | None) -> str:
+        lines = [
+            f"run_id: {run_id}",
+            f"role: {target.role}",
+            f"branch: {target.work_branch}",
+            f"related_{related.role}_branch: {related.work_branch}",
+            "generated_by: AI-CSRF autopilot",
+        ]
+        if ai_evidence:
+            lines.extend(["", "AI evidence:"])
+            lines.extend(self._format_ai_evidence(ai_evidence))
+        return "\n".join(lines)
+
+    def _format_ai_evidence(self, ai_evidence: dict) -> list[str]:
+        lines: list[str] = []
+        decision = ai_evidence.get("decision") or {}
+        draft = ai_evidence.get("patch_draft") or {}
+        apply_result = ai_evidence.get("patch_apply") or {}
+        ci_result = ai_evidence.get("ci_result") or {}
+
+        if decision:
+            lines.append(f"- decision_mode: {decision.get('mode', '')}")
+            lines.append(f"- decision_total: {decision.get('summary', {}).get('total', 0)}")
+        if draft:
+            lines.append(f"- patch_draft_status: {draft.get('status', '')}")
+            lines.append(f"- patch_groups: {len(draft.get('patches', []))}")
+        if apply_result:
+            lines.append(f"- patch_apply_status: {apply_result.get('status', '')}")
+            lines.append(f"- changed_files: {len(apply_result.get('changed_files', []))}")
+        if ci_result:
+            lines.append(f"- ci_gate_passed: {ci_result.get('summary', {}).get('gate_passed', False)}")
+        return lines
 
     def _build_summary(self, repositories: list[dict]) -> dict:
         summary = {"pass": 0, "manual": 0, "fail": 0, "skipped": 0, "blocked": 0}
