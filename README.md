@@ -72,7 +72,6 @@ git config --global user.email "你的 GitHub 邮箱"
 gh auth login
 ```
 
-不要把 API Key 写入代码或提交到仓库。
 
 ## 目录说明
 
